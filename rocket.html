@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Missão: Fora de Órbita</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Cosmic Command -->
+    <!-- Application Structure Plan: A estrutura é um painel de controle de missão de página única. O usuário navega por três "missões" principais (os temas da série) usando uma navegação clara. Essa abordagem foi escolhida para dividir o conteúdo em segmentos focados e digeríveis, imitando um briefing de missão. Um gráfico de radar interativo serve como uma âncora visual central, que muda com o tópico selecionado, reforçando o conceito-chave de cada missão de uma maneira visualmente envolvente e temática. -->
+    <!-- Visualization & Content Choices: 1. Informação do Relatório: Três temas centrais da série. Objetivo: Organizar e Informar. Apresentação: Seções de conteúdo com abas. Interação: Botões de navegação clicáveis para alternar as visualizações. Justificativa: Fornece uma maneira clara e não linear de explorar as mensagens principais. Método: Manipulação do DOM com Vanilla JS. 2. Informação do Relatório: Conceitos abstratos de vida "mundana" vs. "divina". Objetivo: Comparar e Informar. Apresentação: Gráfico de Radar Interativo. Interação: Os dados do gráfico são atualizados quando uma missão é selecionada, destacando o conceito relevante. Justificativa: Um gráfico de radar oferece uma metáfora visual atraente, semelhante à da NASA, para equilibrar diferentes aspectos da vida, tornando conceitos abstratos mais concretos. Método: Chart.js (Canvas). -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Roboto Mono', monospace;
+            background-color: #0a0f1f;
+            color: #e0e0e0;
+        }
+        .font-orbitron {
+            font-family: 'Orbitron', sans-serif;
+        }
+        .hud-border {
+            border: 1px solid rgba(255, 87, 51, 0.3);
+            box-shadow: 0 0 10px rgba(255, 87, 51, 0.2);
+        }
+        .nav-btn {
+            transition: all 0.3s ease;
+            border-bottom: 2px solid transparent;
+        }
+        .nav-btn.active, .nav-btn:hover {
+            background-color: rgba(255, 87, 51, 0.1);
+            border-bottom: 2px solid #FF5733;
+            color: #FF5733;
+        }
+        .content-section {
+            display: none;
+        }
+        .content-section.active {
+            display: block;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 40vh;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 400px;
+            }
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <div class="min-h-screen flex flex-col items-center justify-center p-4 bg-cover bg-center" style="background-image: url('https://placehold.co/1920x1080/0a0f1f/141933?text=.')">
+        <div class="w-full max-w-6xl mx-auto bg-black bg-opacity-50 backdrop-blur-sm rounded-lg hud-border p-4 md:p-8">
+
+            <header class="text-center mb-8">
+                <h1 class="font-orbitron text-3xl md:text-5xl font-bold text-white uppercase tracking-widest">
+                    <span class="text-[#FF5733]">Rocket</span> Mission Control
+                </h1>
+                <p class="font-orbitron text-lg md:text-2xl text-[#FF5733] mt-2">Série: Fora de Órbita 🚀</p>
+            </header>
+
+            <main class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                <div class="lg:col-span-1 flex flex-col gap-6">
+                    <div class="bg-gray-900 bg-opacity-70 p-4 rounded-md hud-border">
+                        <h2 class="font-orbitron text-xl text-center text-[#FF5733] mb-4">Painel de Missões</h2>
+                        <nav id="mission-nav" class="flex flex-col gap-2">
+                            <button data-mission="1" class="nav-btn w-full text-left p-3 rounded-md font-bold">MISSÃO 01: Rompendo a Gravidade</button>
+                            <button data-mission="2" class="nav-btn w-full text-left p-3 rounded-md font-bold">MISSÃO 02: Trajetória Celeste</button>
+                            <button data-mission="3" class="nav-btn w-full text-left p-3 rounded-md font-bold">MISSÃO 03: Orbitando o Sol</button>
+                        </nav>
+                    </div>
+
+                    <div class="bg-gray-900 bg-opacity-70 p-4 rounded-md hud-border">
+                        <h2 class="font-orbitron text-xl text-center text-[#FF5733] mb-4">Status da Vida</h2>
+                        <p class="text-sm text-center text-gray-400 mb-2">Este gráfico mostra o equilíbrio entre os padrões do mundo e o chamado de Deus. Selecione uma missão para ver como ela impacta sua trajetória.</p>
+                        <div class="chart-container">
+                            <canvas id="statusChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="mission-content" class="lg:col-span-2 bg-gray-900 bg-opacity-70 p-6 rounded-md hud-border">
+                    <div id="mission-intro" class="content-section">
+                        <h2 class="font-orbitron text-2xl font-bold text-[#FF5733] mb-4">Preparando para a Decolagem</h2>
+                        <p class="text-gray-300 leading-relaxed">Bem-vindos à Missão "Fora de Órbita"! Nossa vida é a maior e mais importante jornada que faremos. Muitos se contentam em ficar no chão, presos pela força da gravidade das opiniões, dos medos e do pecado. Mas nós fomos chamados para algo maior. Fomos projetados por Deus não para rastejar, mas para voar. Assim como um foguete, nossa vida precisa de um combustível poderoso e de uma direção clara para alcançar os céus. Durante esta série, vamos descobrir como acionar a propulsão da fé, quebrar a inércia e viver uma vida que está, literalmente, fora de órbita!</p>
+                    </div>
+
+                    <div id="mission-1" class="content-section">
+                        <h2 class="font-orbitron text-2xl font-bold text-[#FF5733] mb-2">MISSÃO 01: Vivendo Além dos Padrões</h2>
+                        <p class="text-sm text-gray-400 mb-4">Conceito-chave: Rompendo a gravidade da cultura.</p>
+                        <p class="mb-4 text-gray-300 leading-relaxed">Assim como um foguete precisa de uma força imensa para escapar da atração da Terra, nós precisamos do poder de Deus para nos libertar da "força gravitacional" do mundo. Essa força se manifesta na pressão para sermos iguais a todo mundo, nas tendências passageiras e nos valores que contradizem o Reino de Deus.</p>
+                        <p class="mb-4 text-gray-300 leading-relaxed">Viver "Fora de Órbita" é entender que fomos libertos em Cristo para viver em uma nova dimensão: a vontade de Deus. É a liberdade de ser quem Deus nos criou para ser.</p>
+                        <blockquote class="border-l-4 border-[#FF5733] pl-4 py-2 bg-black bg-opacity-20 rounded-r-md">
+                            <p class="italic">“Não se amoldem ao padrão deste mundo, mas transformem-se pela renovação da sua mente, para que sejam capazes de experimentar e comprovar a boa, agradável e perfeita vontade de Deus.”</p>
+                            <cite class="text-sm text-gray-400 mt-2 block">Romanos 12:2</cite>
+                        </blockquote>
+                    </div>
+
+                    <div id="mission-2" class="content-section">
+                        <h2 class="font-orbitron text-2xl font-bold text-[#FF5733] mb-2">MISSÃO 02: Uma Vida que Aponta para o Céu</h2>
+                        <p class="text-sm text-gray-400 mb-4">Conceito-chave: A trajetória da santidade.</p>
+                        <p class="mb-4 text-gray-300 leading-relaxed">Um foguete não é construído para ficar parado na plataforma de lançamento. Seu propósito é subir e alcançar seu destino. Da mesma forma, um adolescente cristão não foi salvo para continuar preso na "gravidade do pecado". Fomos chamados para uma vida de santidade, que significa separar-se daquilo que nos prende.</p>
+                        <p class="mb-4 text-gray-300 leading-relaxed">Nossa vida deve ser uma seta constante apontando para o Céu. Com os olhos fixos em Jesus, o "piloto" da nossa jornada, deixamos para trás o peso inútil do pecado e seguimos em uma trajetória ascendente.</p>
+                        <blockquote class="border-l-4 border-[#FF5733] pl-4 py-2 bg-black bg-opacity-20 rounded-r-md">
+                            <p class="italic">“Portanto, já que vocês ressuscitaram com Cristo, procurem as coisas que são do alto, onde Cristo está assentado à direita de Deus. Mantenham o pensamento nas coisas do alto, e não nas coisas terrenas.”</p>
+                            <cite class="text-sm text-gray-400 mt-2 block">Colossenses 3:1-2</cite>
+                        </blockquote>
+                    </div>
+
+                    <div id="mission-3" class="content-section">
+                        <h2 class="font-orbitron text-2xl font-bold text-[#FF5733] mb-2">MISSÃO 03: Quando sua Vida Gira em Torno de Cristo</h2>
+                        <p class="text-sm text-gray-400 mb-4">Conceito-chave: O centro do nosso universo.</p>
+                        <p class="mb-4 text-gray-300 leading-relaxed">Todo corpo celeste orbita algo maior. A pergunta é: em torno do que a sua vida está girando? Muitos vivem suas vidas orbitando coisas pequenas e passageiras: popularidade, prazeres momentâneos, relacionamentos superficiais. Esses são "asteroides" que não têm luz própria.</p>
+                        <p class="mb-4 text-gray-300 leading-relaxed">Entregar a vida a Cristo é mudar o centro da nossa órbita. É colocar Jesus, o "Sol da Justiça", no centro do nosso universo. Quando Ele é o centro, tudo encontra seu lugar. Uma vida que gira em torno de Cristo é estável, cheia de significado e reflete a glória do verdadeiro centro de tudo.</p>
+                        <blockquote class="border-l-4 border-[#FF5733] pl-4 py-2 bg-black bg-opacity-20 rounded-r-md">
+                            <p class="italic">“Fui crucificado com Cristo. Assim, já não sou eu quem vive, mas Cristo vive em mim. A vida que agora vivo no corpo, vivo-a pela fé no filho de Deus, que me amou e se entregou por mim.”</p>
+                            <cite class="text-sm text-gray-400 mt-2 block">Gálatas 2:20</cite>
+                        </blockquote>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const navButtons = document.querySelectorAll('.nav-btn');
+            const contentSections = document.querySelectorAll('.content-section');
+            const missionNav = document.getElementById('mission-nav');
+            const missionIntro = document.getElementById('mission-intro');
+
+            const chartCtx = document.getElementById('statusChart').getContext('2d');
+            
+            const chartData = {
+                labels: ['Padrões do Mundo', 'Santidade', 'Foco em Cristo', 'Propósito Divino', 'Gravidade do Pecado', 'Egoísmo'],
+                datasets: [
+                    {
+                        label: 'Status da Missão',
+                        data: [4, 8, 8, 9, 3, 4],
+                        backgroundColor: 'rgba(255, 87, 51, 0.2)',
+                        borderColor: '#FF5733',
+                        pointBackgroundColor: '#FF5733',
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: '#FF5733'
+                    }
+                ]
+            };
+            
+            const chartConfig = {
+                type: 'radar',
+                data: chartData,
+                options: {
+                    maintainAspectRatio: false,
+                    responsive: true,
+                    elements: {
+                        line: {
+                            borderWidth: 2
+                        }
+                    },
+                    scales: {
+                        r: {
+                            angleLines: {
+                                color: 'rgba(255, 255, 255, 0.2)'
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.2)'
+                            },
+                            pointLabels: {
+                                color: '#e0e0e0',
+                                font: {
+                                    family: "'Roboto Mono', monospace",
+                                    size: 10
+                                }
+                            },
+                            ticks: {
+                                color: '#0a0f1f',
+                                backdropColor: 'rgba(255, 255, 255, 0.8)',
+                                stepSize: 2
+                            },
+                            suggestedMin: 0,
+                            suggestedMax: 10
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            };
+
+            let statusChart = new Chart(chartCtx, chartConfig);
+
+            function updateMissionView(missionId) {
+                navButtons.forEach(btn => {
+                    btn.classList.toggle('active', btn.dataset.mission === missionId);
+                });
+
+                contentSections.forEach(section => {
+                    section.classList.remove('active');
+                });
+
+                if (missionId) {
+                    const activeSection = document.getElementById(`mission-${missionId}`);
+                    if (activeSection) {
+                        activeSection.classList.add('active');
+                    }
+                    missionIntro.style.display = 'none';
+                } else {
+                    missionIntro.style.display = 'block';
+                    missionIntro.classList.add('active');
+                }
+
+                updateChart(missionId);
+            }
+
+            function updateChart(missionId) {
+                let newData;
+                switch(missionId) {
+                    case '1':
+                        newData = [8, 4, 4, 5, 8, 7];
+                        break;
+                    case '2':
+                        newData = [3, 9, 6, 8, 2, 4];
+                        break;
+                    case '3':
+                        newData = [2, 8, 10, 10, 2, 1];
+                        break;
+                    default:
+                        newData = [4, 8, 8, 9, 3, 4];
+                }
+                statusChart.data.datasets[0].data = newData;
+                statusChart.update();
+            }
+
+            missionNav.addEventListener('click', (e) => {
+                if (e.target.tagName === 'BUTTON') {
+                    const missionId = e.target.dataset.mission;
+                    updateMissionView(missionId);
+                }
+            });
+
+            updateMissionView('1');
+        });
+    </script>
+
+</body>
+</html>
